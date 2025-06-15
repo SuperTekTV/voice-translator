@@ -10,9 +10,9 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.post('/translate', async (req, res) => {
+app.post('/api/translate', async (req, res) => {
   const { q, source, target } = req.body;
-
+  
   if (!q || !source || !target) {
     return res.status(400).json({ error: 'Testo, lingua sorgente e lingua destinazione sono obbligatori' });
   }
