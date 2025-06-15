@@ -1,41 +1,44 @@
-const express = require('express');
-const cors = require('cors');
 const path = require('path');
-const fetch = require('node-fetch');
+const express = require('express');
+const fetch = require('node-fetch'); // npm install node-fetch@2
+const cors = require('cors');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
-
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.post('/api/translate', async (req, res) => {
-  const { text, source, target } = req.body;
+app.post('/translate', async (req, res) => {
+  const { q, source, target } = req.body;
 
-  if (!text || !source || !target) {
-    return res.status(400).json({ error: 'Mancano parametri' });
+  if (!q || !source || !target) {
+    return res.status(400).json({ error: 'Testo, lingua sorgente e lingua destinazione sono obbligatori' });
   }
 
+  const langpair = `${source}|${target}`;
+  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=${langpair}`;
+
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${source}|${target}`;
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`HTTP status ${response.status}`);
+    if (!response.ok) {
+      return res.status(response.status).json({ error: `Errore da MyMemory: ${response.statusText}` });
+    }
 
     const data = await response.json();
 
-    res.json({ translatedText: data.responseData.translatedText });
+    if (data.responseData && data.responseData.translatedText) {
+      res.json({ translatedText: data.responseData.translatedText });
+    } else {
+      res.status(500).json({ error: 'Nessuna traduzione ricevuta da MyMemory', data });
+    }
   } catch (error) {
-    console.error('Errore nella traduzione:', error);
-    res.status(500).json({ error: 'Errore durante la traduzione' });
+    console.error('Errore interno:', error);
+    res.status(500).json({ error: 'Errore interno server' });
   }
 });
 
-app.get('*', (req, res) => {
-  res.sendFile(path.resolve(__dirname, 'public', 'index.html'));
-});
-
 app.listen(PORT, () => {
-  console.log(`Server in ascolto su http://localhost:${PORT}`);
+  console.log(`Server proxy in ascolto su http://localhost:${PORT}`);
 });
