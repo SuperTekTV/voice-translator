@@ -3,7 +3,7 @@ const fetch = require('node-fetch'); // npm install node-fetch@2
 const cors = require('cors');
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.json());
