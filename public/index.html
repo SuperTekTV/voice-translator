@@ -179,7 +179,7 @@
 
           phase = 'speaking';
           try {
-            const res = await fetch('http://localhost:3000/translate', {
+            const res = await fetch('/api/translate', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ q: lastText, source: 'it', target: langCodeToUse })
@@ -213,7 +213,7 @@
 
         phase = 'speaking';
         try {
-          const res = await fetch('http://localhost:3000/translate', {
+          const res = await fetch('/api/translate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ q: lastText, source: 'it', target: langCode })
