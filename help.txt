@@ -1,0 +1,18 @@
+Traduttore vocale italiano multi-lingua con riconoscimento continuo e sintesi vocale localizzata
+Prompt:
+Genera un'applicazione web completa (HTML + JavaScript frontend) e un server backend Node.js che realizzi un traduttore vocale multi-lingua con le seguenti caratteristiche:
+
+1. Il frontend utilizza il Web Speech API per il riconoscimento vocale continuo in italiano, ascoltando automaticamente senza interruzioni.
+2. L’utente detta prima il testo in italiano da tradurre. Dopo una pausa o riconoscimento, il sistema chiede vocalmente (in output testuale e parlato in italiano) di indicare la lingua di destinazione tramite dettatura.
+3. Il backend Node.js espone una API /translate che utilizza l’API pubblica MyMemory per tradurre il testo da italiano alla lingua scelta.
+4. Il frontend riceve la traduzione e la pronuncia automaticamente con la sintesi vocale, usando la voce più appropriata per la lingua di destinazione. La velocità di pronuncia è ridotta del 10% per maggiore chiarezza.
+5. All’avvio, il frontend inizializza la sintesi vocale eseguendo un breve messaggio con la voce italiana di Google per sbloccare la funzionalità TTS e prevenire blocchi.
+6. L’interfaccia ha due pulsanti: “Avvia” per iniziare l’ascolto e “Ferma” per interrompere tutto pulitamente.
+7. Prevedi logica di fallback per la selezione delle voci vocali se la voce italiana Google non è disponibile.
+8. Implementa gestione semplice degli errori e messaggi di stato in un’area di output testuale.
+9. Il codice deve essere chiaro, moderno e commentato per facilitare manutenzione e aggiornamenti futuri.
+
+Restituisci due file:  
+- `index.html` completo con tutto il codice frontend incluso i pulsanti e l’area di output.  
+- `server.js` Node.js con Express che espone la route POST `/translate` che invia la richiesta all’API MyMemory e restituisce la traduzione.
+

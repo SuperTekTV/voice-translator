@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Traduttore vocale italiano multi-lingua con timeout lingua</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  button { margin: 5px; padding: 10px 20px; font-size: 16px; }
+  #output { white-space: pre-wrap; background: #f0f0f0; padding: 10px; height: 250px; overflow-y: auto; border: 1px solid #ccc; }
+</style>
+</head>
+<body>
+
+<h1>Traduttore vocale italiano multi-lingua con timeout lingua</h1>
+<button id="startBtn">Avvia</button>
+<button id="stopBtn">Ferma</button>
+
+<div id="output">Premi "Avvia" per iniziare.</div>
+
+<script>
+  const startBtn = document.getElementById('startBtn');
+  const stopBtn = document.getElementById('stopBtn');
+  const output = document.getElementById('output');
+
+  let recognition, synth = window.speechSynthesis;
+  let voices = [];
+  let running = false;
+  let phase = 'awaiting-text'; // 'awaiting-text' | 'awaiting-language' | 'speaking'
+  let lastText = '';
+  let lastLangCode = 'en'; // lingua default
+  let languageTimeout = null;
+
+  const languageMap = {
+  "afrikaans": "af",
+  "albanese": "sq",
+  "amarico": "am",
+  "arabo": "ar",
+  "armen o": "hy",
+  "azero": "az",
+  "basco": "eu",
+  "bielorusso": "be",
+  "bengalese": "bn",
+  "bosniaco": "bs",
+  "bulgaro": "bg",
+  "catalano": "ca",
+  "ceco": "cs",
+  "cinese": "zh",
+  "coreano": "ko",
+  "creolo haitiano": "ht",
+  "croato": "hr",
+  "danese": "da",
+  "ebraico": "he",
+  "inglese": "en",
+  "esperanto": "eo",
+  "estoniano": "et",
+  "filippino": "tl",
+  "finlandese": "fi",
+  "francese": "fr",
+  "galiziano": "gl",
+  "georgiano": "ka",
+  "giapponese": "ja",
+  "greco": "el",
+  "gujarati": "gu",
+  "hindi": "hi",
+  "indonesiano": "id",
+  "irlandese": "ga",
+  "islandese": "is",
+  "italiano": "it",
+  "giavanese": "jw",
+  "kazako": "kk",
+  "cambogiano": "km",
+  "canadese": "kn",
+  "curdo": "ku",
+  "kirghiso": "ky",
+  "lao": "lo",
+  "lettone": "lv",
+  "lituano": "lt",
+  "macedone": "mk",
+  "malgascio": "mg",
+  "malese": "ms",
+  "malayalam": "ml",
+  "maltese": "mt",
+  "maori": "mi",
+  "marathi": "mr",
+  "mongolo": "mn",
+  "nepalese": "ne",
+  "norvegese": "no",
+  "olandese": "nl",
+  "pashtu": "ps",
+  "persiano": "fa",
+  "polacco": "pl",
+  "portoghese": "pt",
+  "punjabi": "pa",
+  "rumeno": "ro",
+  "russo": "ru",
+  "serbo": "sr",
+  "slovacco": "sk",
+  "sloveno": "sl",
+  "somalo": "so",
+  "spagnolo": "es",
+  "sundanese": "su",
+  "svedese": "sv",
+  "swahili": "sw",
+  "tagiko": "tg",
+  "tailandese": "th",
+  "tamil": "ta",
+  "telugu": "te",
+  "turco": "tr",
+  "ucraino": "uk",
+  "urdo": "ur",
+  "uzbeko": "uz",
+  "vietnamita": "vi",
+  "gallese": "cy",
+  "xhosa": "xh",
+  "yiddish": "yi",
+  "yoruba": "yo",
+  "zulu": "zu"
+};
+
+
+  function getVoiceByLang(lang) {
+    return voices.find(v => v.lang.toLowerCase().startsWith(lang.toLowerCase()) && v.name.toLowerCase().includes('google')) ||
+           voices.find(v => v.lang.toLowerCase().startsWith(lang.toLowerCase())) ||
+           null;
+  }
+
+  async function speak(text, lang, slow = false) {
+    return new Promise((resolve, reject) => {
+      if (!synth) return reject('Sintesi vocale non supportata');
+      if (synth.speaking) {
+        synth.cancel();
+      }
+      const utter = new SpeechSynthesisUtterance(text);
+      const voice = getVoiceByLang(lang) || getVoiceByLang('en');
+      if (voice) utter.voice = voice;
+      utter.lang = voice ? voice.lang : lang;
+      utter.rate = slow ? 0.9 : 1.0;
+      utter.onend = () => resolve();
+      utter.onerror = (e) => reject(e);
+      synth.speak(utter);
+    });
+  }
+
+  function initVoices() {
+    return new Promise((resolve) => {
+      voices = synth.getVoices();
+      if (voices.length) resolve();
+      else {
+        synth.onvoiceschanged = () => {
+          voices = synth.getVoices();
+          resolve();
+        };
+      }
+    });
+  }
+
+  function setupRecognition() {
+    recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    recognition.lang = 'it-IT';
+    recognition.interimResults = false;
+    recognition.continuous = true;
+
+    recognition.onresult = async (event) => {
+      if (!running || synth.speaking) return;
+
+      const transcript = event.results[event.results.length - 1][0].transcript.trim().toLowerCase();
+      console.log('Riconosciuto:', transcript);
+
+      if (phase === 'awaiting-text') {
+        lastText = transcript;
+        phase = 'awaiting-language';
+        output.textContent = `🗣️ Testo rilevato: "${transcript}"\nAttesa della lingua...`;
+
+        if (languageTimeout) clearTimeout(languageTimeout);
+        languageTimeout = setTimeout(async () => {
+          let langCodeToUse = lastLangCode || 'en';
+          output.textContent += `\n⌛ Tempo scaduto, uso lingua: ${langCodeToUse}`;
+
+          phase = 'speaking';
+          try {
+            const res = await fetch('http://localhost:3000/translate', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ q: lastText, source: 'it', target: langCodeToUse })
+            });
+            const data = await res.json();
+            const translated = data.translatedText;
+
+            output.textContent += `\n📣 Traduzione: "${translated}"`;
+            await speak(translated, langCodeToUse, true);
+          } catch (e) {
+            console.error('Errore:', e);
+            output.textContent += `\n❌ Errore durante la traduzione.`;
+          }
+          phase = 'awaiting-text';
+          output.textContent += `\n🎤 Pronto per un nuovo testo...`;
+        }, 4000);
+
+      } else if (phase === 'awaiting-language') {
+        if (languageTimeout) clearTimeout(languageTimeout);
+
+        const langCode = languageMap[transcript];
+        if (!langCode) {
+          output.textContent += `\n⚠️ Lingua non riconosciuta: "${transcript}". Ritorno al testo.`;
+          phase = 'awaiting-text';
+          return;
+        }
+
+        lastLangCode = langCode;
+
+        output.textContent += `\n🌍 Traducendo in ${transcript}...`;
+
+        phase = 'speaking';
+        try {
+          const res = await fetch('http://localhost:3000/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ q: lastText, source: 'it', target: langCode })
+          });
+          const data = await res.json();
+          const translated = data.translatedText;
+
+          output.textContent += `\n📣 Traduzione: "${translated}"`;
+          await speak(translated, langCode, true);
+        } catch (e) {
+          console.error('Errore:', e);
+          output.textContent += `\n❌ Errore durante la traduzione.`;
+        }
+        phase = 'awaiting-text';
+        output.textContent += `\n🎤 Pronto per un nuovo testo...`;
+      }
+    };
+
+    recognition.onerror = (e) => {
+      console.error('Recognition error:', e.error);
+      output.textContent += `\n❌ Errore riconoscimento: ${e.error}`;
+      if (running) recognition.start();
+    };
+
+    recognition.onend = () => {
+      if (running) recognition.start();
+    };
+  }
+
+  async function init() {
+    await initVoices();
+
+    const italianGoogleVoice = voices.find(v => v.lang.startsWith('it') && v.name.toLowerCase().includes('google'));
+    const voiceToUse = italianGoogleVoice || voices.find(v => v.lang.startsWith('it'));
+
+    if (voiceToUse) {
+      const testUtter = new SpeechSynthesisUtterance('Pronto per la dettatura e traduzione.');
+      testUtter.voice = voiceToUse;
+      testUtter.lang = voiceToUse.lang;
+      synth.speak(testUtter);
+      testUtter.onend = () => {
+        output.textContent = 'Premi "Avvia" per iniziare.';
+      };
+    } else {
+      output.textContent = 'Premi "Avvia" per iniziare.';
+    }
+
+    setupRecognition();
+  }
+
+  startBtn.onclick = () => {
+    if (running) return;
+    running = true;
+    phase = 'awaiting-text';
+    output.textContent = '🎤 Ascolto attivato... Detta il testo in italiano.';
+    recognition.start();
+  };
+
+  stopBtn.onclick = () => {
+    if (!running) return;
+    running = false;
+    if (languageTimeout) clearTimeout(languageTimeout);
+    recognition.stop();
+    synth.cancel();
+    output.textContent = '🛑 Ascolto e sintesi interrotti.';
+  };
+
+  window.onload = init;
+</script>
+
+</body>
+</html>
