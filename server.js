@@ -10,35 +10,34 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
 
-app.post('/translate', async (req, res) => {
-  const { q, source, target } = req.body;
-
-  if (!q || !source || !target) {
-    return res.status(400).json({ error: 'Testo, lingua sorgente e lingua destinazione sono obbligatori' });
-  }
-
-  const langpair = `${source}|${target}`;
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(q)}&langpair=${langpair}`;
-
+app.post('/api/translate', async (req, res) => {
+  const { text, source, target } = req.body;
+  console.log(`📝 Richiesta traduzione: "${text}" from ${source} to ${target}`);
   try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${source}|${target}`;
     const response = await fetch(url);
-    if (!response.ok) {
-      return res.status(response.status).json({ error: `Errore da MyMemory: ${response.statusText}` });
+    console.log("🔗 Richiamo MyMemory, status:", response.status);
+
+    const raw = await response.text();
+    console.log("📥 Risposta raw:", raw);
+
+    let data;
+    try {
+      data = JSON.parse(raw);
+    } catch (e) {
+      throw new Error("JSON non valido: " + e.message);
     }
 
-    const data = await response.json();
-
-    if (data.responseData && data.responseData.translatedText) {
-      res.json({ translatedText: data.responseData.translatedText });
-    } else {
-      res.status(500).json({ error: 'Nessuna traduzione ricevuta da MyMemory', data });
+    if (!data.responseData?.translatedText) {
+      console.log("❌ responseData:", data);
+      return res.status(500).json({ error: 'Risposta traduzione incompleta', rawData: data });
     }
+
+    console.log("✅ Traduzione ricevuta:", data.responseData.translatedText);
+    res.json({ translatedText: data.responseData.translatedText });
+
   } catch (error) {
-    console.error('Errore interno:', error);
-    res.status(500).json({ error: 'Errore interno server' });
+    console.error("🔥 ERRORE nella traduzione:", error);
+    res.status(500).json({ error: error.message || 'Errore generico backend' });
   }
-});
-
-app.listen(PORT, () => {
-  console.log(`Server proxy in ascolto su http://localhost:${PORT}`);
 });
